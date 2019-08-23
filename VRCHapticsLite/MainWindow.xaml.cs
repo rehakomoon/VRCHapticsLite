@@ -29,11 +29,13 @@ namespace VRCHapticsLite
         private IDirect3DDevice _device;
         private CaptureEngine _capture;
         private HapticsPlayer _player;
+        private RotorPlayer _rotor_player;
 
         private HapticsBridge _headBridge;
         private HapticsBridge _vestBridge;
         private HapticsBridge _leftArmBridge;
         private HapticsBridge _rightArmBridge;
+        private RotorBridge _rotorBridge;
 
         private IntPtr _hwnd;
 
@@ -47,6 +49,7 @@ namespace VRCHapticsLite
 
             _device = Direct3D11Helper.CreateDevice();
             _player = new HapticsPlayer();
+            _rotor_player = new RotorPlayer();
 
             _headBridge = new HapticsBridge(
                 new HapticsBridgeParameters(
@@ -119,6 +122,22 @@ namespace VRCHapticsLite
                 vm.ActiveColor,
                 vm.InactiveColor,
                 _player);
+            _rotorBridge = new RotorBridge(
+                new RotorBridgeParameters(
+                    1, 2, new RotorPointSet[]
+                    {
+                        new RotorPointSet(RotorPosition.MainPosition, new Point[]
+                        {
+                            new Point(0, 0),
+                            new Point(0, 1),
+                        })
+                    }),
+                vm.Rotor,
+                vm.ActiveColor,
+                vm.InactiveColor,
+                _rotor_player);
+
+            vm.Rotor.Enabled.Subscribe(state => { if (!state) { _rotorBridge.OnDisabled(); } });
         }
 
         private void LoadSettings()
@@ -149,6 +168,12 @@ namespace VRCHapticsLite
             dc.RightArm.Y.Value = settings.RightArm_Y;
             dc.RightArm.Width.Value = settings.RightArm_Width;
             dc.RightArm.Height.Value = settings.RightArm_Height;
+            dc.Rotor.Enabled.Value = settings.Rotor_Enabled;
+            dc.Rotor.Power.Value = settings.Rotor_Power;
+            dc.Rotor.X.Value = settings.Rotor_X;
+            dc.Rotor.Y.Value = settings.Rotor_Y;
+            dc.Rotor.Width.Value = settings.Rotor_Width;
+            dc.Rotor.Height.Value = settings.Rotor_Height;
             dc.ActiveColor.MinR.Value = settings.Active_MinR;
             dc.ActiveColor.MaxR.Value = settings.Active_MaxR;
             dc.ActiveColor.MinG.Value = settings.Active_MinG;
@@ -191,6 +216,12 @@ namespace VRCHapticsLite
             settings.RightArm_Y = dc.RightArm.Y.Value;
             settings.RightArm_Width = dc.RightArm.Width.Value;
             settings.RightArm_Height = dc.RightArm.Height.Value;
+            settings.Rotor_Enabled = dc.Rotor.Enabled.Value;
+            settings.Rotor_Power = dc.Rotor.Power.Value;
+            settings.Rotor_X = dc.Rotor.X.Value;
+            settings.Rotor_Y = dc.Rotor.Y.Value;
+            settings.Rotor_Width = dc.Rotor.Width.Value;
+            settings.Rotor_Height = dc.Rotor.Height.Value;
             settings.Active_MinR = dc.ActiveColor.MinR.Value;
             settings.Active_MaxR = dc.ActiveColor.MaxR.Value;
             settings.Active_MinG = dc.ActiveColor.MinG.Value;
@@ -213,6 +244,7 @@ namespace VRCHapticsLite
             _capture.FrameArrived += _vestBridge.OnFrameArrived;
             _capture.FrameArrived += _leftArmBridge.OnFrameArrived;
             _capture.FrameArrived += _rightArmBridge.OnFrameArrived;
+            _capture.FrameArrived += _rotorBridge.OnFrameArrived;
             _capture.StartCapture();
         }
 
@@ -221,7 +253,11 @@ namespace VRCHapticsLite
             var interopWindow = new WindowInteropHelper(this);
             _hwnd = interopWindow.Handle;
 
-            await _player.SetupAsync();
+            await Task.WhenAll(
+                Task.Run(async () => { await _player.SetupAsync(); }),
+                Task.Run(async () => { await _rotor_player.SetupAsync(); }));
+            //await _player.SetupAsync();
+            //await _rotor_player.SetupAsync();
         }
 
         private void Window_Closed(object sender, EventArgs e)
@@ -239,7 +275,7 @@ namespace VRCHapticsLite
             var picker = new GraphicsCapturePicker();
             picker.SetWindow(_hwnd);
             var item = await picker.PickSingleItemAsync();
-            if(item != null)
+            if (item != null)
             {
                 var dc = this.DataContext as MainViewModel;
                 dc.TargetName.Value = item.DisplayName;
