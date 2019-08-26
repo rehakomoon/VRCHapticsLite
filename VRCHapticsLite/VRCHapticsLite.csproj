@@ -103,6 +103,7 @@
     <Compile Include="ColorRangeViewModel.cs" />
     <Compile Include="Direct3D11Helper.cs" />
     <Compile Include="CapturedBitmap.cs" />
+    <Compile Include="RotorController.cs" />
     <Compile Include="RotorPlayer.cs" />
     <Compile Include="RotorBridge.cs" />
     <Compile Include="HapticsBridge.cs" />
